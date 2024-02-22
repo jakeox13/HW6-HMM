@@ -21,9 +21,19 @@ def test_mini_weather():
 
     mini_hmm=np.load('./data/mini_weather_hmm.npz')
     mini_input=np.load('./data/mini_weather_sequences.npz')
+   
+    test=HiddenMarkovModel(mini_hmm['observation_states'],mini_hmm['hidden_states'],mini_hmm['prior_p'],mini_hmm['transition_p'],mini_hmm['emission_p'])
+    test.forward(mini_input["observation_state_sequence"])
 
+    
+    assert np.array_equal(test.viterbi(mini_input["observation_state_sequence"]),mini_input["best_hidden_state_sequence"])
+    # Try input seq not in observed state
+    with pytest.raises(ValueError, match= r"Not all emissions are present in observation states"):
+        test.forward(np.array(["foggy","sunny","rainy"]))
 
-
+    # Try with input seq of length zeros
+    with pytest.raises(ValueError, match= r"Input must have length of at least 1"):
+        test.forward(np.array([]))
 
 
 
@@ -44,14 +54,13 @@ def test_full_weather():
     Assert that the state sequence returned is in the right order, has the right number of states, etc. 
 
     """
+    full_hmm=np.load('./data/full_weather_hmm.npz')
+    full_input=np.load('./data/full_weather_sequences.npz')
 
-    pass
-
-
-
-
-
-
+    
+    test=HiddenMarkovModel(full_hmm['observation_states'],full_hmm['hidden_states'],full_hmm['prior_p'],full_hmm['transition_p'],full_hmm['emission_p'])
+    assert np.array_equal(test.viterbi(full_input["observation_state_sequence"]),full_input["best_hidden_state_sequence"])
+    
 
 
 

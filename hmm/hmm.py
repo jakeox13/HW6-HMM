@@ -40,15 +40,37 @@ class HiddenMarkovModel:
         Returns:
             forward_probability (float): forward probability (likelihood) for the input observed sequence  
         """        
+        # Check that input is not length zero
+        if input_observation_states.size == 0:
+            raise ValueError("Input must have length of at least 1")
         
+        #Check that all inputs are possible emissions
+        if set(self.observation_states).issuperset(set(input_observation_states))== False:
+            raise ValueError("Not all emissions are present in observation states")
+
         # Step 1. Initialize variables
+        result_matrix =np.ndarray((len(self.hidden_states),len(input_observation_states)))
         
-       
+        #Set inital values
+        result_matrix[:,0]=self.prior_p * self.emission_p[:,self.observation_states_dict[input_observation_states[0]]]
+
+        
         # Step 2. Calculate probabilities
+        for i in range(1,len(input_observation_states)):
+            #Calculated teh emission proablities given teh previous states
+            probmatrix=self.transition_p * self.emission_p[:,self.observation_states_dict[input_observation_states[i]]]
+            
+            # Multiply by the previous probalities
+            joint_prob=result_matrix[:,i-1]* probmatrix.T
+    
+            #sum columns to get total probablity of hidden state and assing to results matrix
+            result_matrix[:,i]=np.sum(joint_prob, axis=1).T
+         
 
-
-        # Step 3. Return final probability 
         
+
+        # Step 3. Return final probability
+        return sum(result_matrix[:,len(input_observation_states)-1])
 
 
     def viterbi(self, decode_observation_states: np.ndarray) -> list:
@@ -63,20 +85,47 @@ class HiddenMarkovModel:
         Returns:
             best_hidden_state_sequence(list): most likely list of hidden states that generated the sequence observed states
         """        
+        # Check that input is not length zero
+        if decode_observation_states.size == 0:
+            raise ValueError("Input must have length of at least 1")
         
+        #Check that all inputs are possible emissions
+        if set(self.observation_states).issuperset(set(decode_observation_states))== False:
+            raise ValueError("Not all emissions are present in observation states")
         # Step 1. Initialize variables
         
         #store probabilities of hidden state at each step 
         viterbi_table = np.zeros((len(decode_observation_states), len(self.hidden_states)))
         #store best path for traceback
-        best_path = np.zeros(len(decode_observation_states))         
+        backpointer_table = np.zeros((len(decode_observation_states), len(self.hidden_states)), dtype=int)
+                
+       # Initalize based on priors
         
-       
-       # Step 2. Calculate Probabilities
+        viterbi_table[0] = self.prior_p * self.emission_p[:,self.observation_states_dict[decode_observation_states[0]]]
+        for i in range( 0,len(self.hidden_states)):
+            backpointer_table[0,i]=i
 
+        # Step 2. Calculate Probabilities
+        for i in range(1, len(decode_observation_states)):
+            for j in range(len(self.hidden_states)):
+                # Calculate the probabilities for each state at time i
+                probabilities = viterbi_table[i - 1] * self.transition_p[:, j] * self.emission_p[j,self.observation_states_dict[decode_observation_states[i]]]
+
+                # Select the maximum probability and store it in the viterbi table
+                viterbi_table[i, j] = np.max(probabilities)
+                
+                # Store the backpointer which indicates the previous state that led to this maximum probability
+                backpointer_table[i, j] = np.argmax(probabilities)
             
         # Step 3. Traceback 
+        # id best state at end         
+        best_hidden_state_sequence = [np.argmax(viterbi_table[-1])]
+        # Create reverse path based on backpointer table
+        for t in range(len(decode_observation_states) - 1, 0, -1):
+            best_hidden_state_sequence.insert(0, backpointer_table[t, best_hidden_state_sequence[0]])
+        # Step 4. Return best hidden state sequence (revseve since it was backtraced)
+        return [self.hidden_states_dict[x]for x in best_hidden_state_sequence]
 
-
-        # Step 4. Return best hidden state sequence 
-        
+   
+   
+    
